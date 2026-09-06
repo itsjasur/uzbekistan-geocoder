@@ -1,0 +1,66 @@
+services:
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    restart: unless-stopped
+    environment:
+      GEOCODER_DOMAIN: "${GEOCODER_DOMAIN:?Set GEOCODER_DOMAIN in .env}"
+      RATE_LIMIT_EVENTS: "${RATE_LIMIT_EVENTS:-120}"
+      RATE_LIMIT_WINDOW: "${RATE_LIMIT_WINDOW:-1m}"
+      RATE_LIMIT_BURST: "${RATE_LIMIT_BURST:-20}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      nominatim:
+        condition: service_started
+    networks: [public]
+
+  nominatim:
+    image: mediagis/nominatim:5.3.2
+    restart: unless-stopped
+    shm_size: 1gb
+    environment:
+      PBF_URL: "${PBF_URL:-https://download.geofabrik.de/asia/uzbekistan-latest.osm.pbf}"
+      REPLICATION_URL: "${REPLICATION_URL:-https://download.geofabrik.de/asia/uzbekistan-updates/}"
+      UPDATE_MODE: "${UPDATE_MODE:-continuous}"
+      REVERSE_ONLY: "false"
+      IMPORT_STYLE: "${IMPORT_STYLE:-address}"
+      IMPORT_WIKIPEDIA: "false"
+      NOMINATIM_CORS_NOACCESSCONTROL: "false"
+      NOMINATIM_POLYGON_OUTPUT_MAX_TYPES: "0"
+      NOMINATIM_PASSWORD: "${NOMINATIM_PASSWORD:?Set NOMINATIM_PASSWORD in .env}"
+      GUNICORN_CMD_ARGS: "--no-control-socket"
+      THREADS: "${THREADS:-1}"
+      GUNICORN_WORKERS: "${GUNICORN_WORKERS:-1}"
+      POSTGRES_SHARED_BUFFERS: "${POSTGRES_SHARED_BUFFERS:-128MB}"
+      POSTGRES_MAINTENANCE_WORK_MEM: "${POSTGRES_MAINTENANCE_WORK_MEM:-256MB}"
+      POSTGRES_AUTOVACUUM_WORK_MEM: "${POSTGRES_AUTOVACUUM_WORK_MEM:-64MB}"
+      POSTGRES_WORK_MEM: "${POSTGRES_WORK_MEM:-10MB}"
+      POSTGRES_EFFECTIVE_CACHE_SIZE: "${POSTGRES_EFFECTIVE_CACHE_SIZE:-512MB}"
+      POSTGRES_MAX_CONNECTIONS: "${POSTGRES_MAX_CONNECTIONS:-20}"
+    volumes:
+      - nominatim-data:/var/lib/postgresql/16/main
+    expose:
+      - "8080"
+    networks: [public]
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/status | grep --quiet '^OK$'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 2h
+
+volumes:
+  caddy-data:
+  caddy-config:
+  nominatim-data:
+
+networks:
+  public:
