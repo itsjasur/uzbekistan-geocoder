@@ -129,6 +129,10 @@ The defaults are in `.env.example`.
 | `RATE_LIMIT_WINDOW` | `1m` | Rate-limit window |
 | `RATE_LIMIT_BURST` | `20` | Extra short burst allowed |
 
+The default `address` import style focuses on addresses and administrative
+places and skips general points of interest. If you need detailed points of
+interest, set `IMPORT_STYLE=full` in `.env` before the first import.
+
 `IMPORT_STYLE` is applied when the database is created. Changing it later does
 not rebuild an existing database; you need a fresh volume and a new import.
 
